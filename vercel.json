@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "regions": ["iad1"],
+  "functions": {
+    "api/upload.js": {
+      "maxDuration": 30
+    },
+    "api/photos.js": {
+      "maxDuration": 10
+    }
+  },
+  "env": {
+    "CLOUDINARY_CLOUD_NAME": "@cloudinary_cloud_name",
+    "CLOUDINARY_API_KEY": "@cloudinary_api_key", 
+    "CLOUDINARY_API_SECRET": "@cloudinary_api_secret"
+  }
+} 
