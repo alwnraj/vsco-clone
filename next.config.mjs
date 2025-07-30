@@ -6,6 +6,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Suppress hydration warnings for development
+  reactStrictMode: true,
   // Performance optimizations
   compress: true,
   poweredByHeader: false,

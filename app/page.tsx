@@ -71,7 +71,7 @@ const PhotoCard = React.memo(
   }) => {
     if (isMobile) {
       return (
-        <div className="relative bg-slate-800/50 border border-slate-600/30 overflow-hidden">
+        <div className="photo-container relative bg-slate-800/50 border border-slate-600/30 overflow-hidden">
           <Image
             src={photo.grid_url || photo.url}
             alt={photo.original_name}
@@ -88,7 +88,7 @@ const PhotoCard = React.memo(
     }
 
     return (
-      <div className="relative break-inside-avoid bg-slate-800/50 border border-slate-600/30 overflow-hidden mb-2 lg:mb-3">
+      <div className="photo-container relative break-inside-avoid bg-slate-800/50 border border-slate-600/30 overflow-hidden mb-2 lg:mb-3">
         <Image
           src={photo.grid_url || photo.url}
           alt={photo.original_name}
@@ -104,7 +104,7 @@ const PhotoCard = React.memo(
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-full bg-slate-900/70 text-slate-300 border border-slate-600/50"
+            className="h-8 w-8 bg-slate-900/70 text-slate-300 border border-slate-600/50"
             onClick={() => onDelete(photo.id)}
           >
             <X className="w-4 h-4" />
@@ -202,6 +202,23 @@ export default function VSCOClone() {
   useEffect(() => {
     fetchPhotos();
   }, [fetchPhotos]);
+
+  // Cleanup object URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      photos.forEach((photo) => {
+        if (photo.url && photo.url.startsWith("blob:")) {
+          URL.revokeObjectURL(photo.url);
+        }
+        if (photo.grid_url && photo.grid_url.startsWith("blob:")) {
+          URL.revokeObjectURL(photo.grid_url);
+        }
+        if (photo.thumbnail_url && photo.thumbnail_url.startsWith("blob:")) {
+          URL.revokeObjectURL(photo.thumbnail_url);
+        }
+      });
+    };
+  }, [photos]);
 
   // Handle file selection with validation
   const handleFileSelect = useCallback(
@@ -381,7 +398,7 @@ export default function VSCOClone() {
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-slate-800 rounded-xl">
+              <div className="p-1.5 bg-slate-800">
                 <Aperture className="w-5 h-5 text-slate-300" />
               </div>
               <div>
@@ -408,7 +425,7 @@ export default function VSCOClone() {
           <div className="p-6 sm:p-8">
             <div className="text-center">
               <div className="inline-flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 bg-slate-700/80 rounded-xl flex items-center justify-center">
+                <div className="w-8 h-8 bg-slate-700/80 flex items-center justify-center">
                   <Camera className="w-4 h-4 text-slate-300" />
                 </div>
                 <div className="text-left">
@@ -428,16 +445,16 @@ export default function VSCOClone() {
                     onChange={handleFileSelect}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                   />
-                  <div className="flex items-center justify-center gap-2 p-3 bg-slate-800/60 border border-slate-700/60 rounded-xl text-slate-400">
+                  <div className="flex items-center justify-center gap-2 p-3 bg-slate-800/60 border border-slate-700/60 text-slate-400">
                     <Plus className="w-4 h-4" />
                     <span className="text-sm font-normal">Choose photos</span>
                   </div>
                 </div>
 
                 {selectedFiles.length > 0 && (
-                  <div className="mt-4 p-3 bg-slate-800/60 rounded-xl border border-slate-700/60">
+                  <div className="mt-4 p-3 bg-slate-800/60 border border-slate-700/60">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="w-6 h-6 bg-slate-700/80 rounded-lg flex items-center justify-center">
+                      <div className="w-6 h-6 bg-slate-700/80 flex items-center justify-center">
                         <Camera className="w-3 h-3 text-slate-400" />
                       </div>
                       <div className="flex-1 text-left">
@@ -455,7 +472,7 @@ export default function VSCOClone() {
                         onClick={uploadPhotos}
                         disabled={uploading}
                         size="sm"
-                        className="flex-1 bg-slate-700/80 hover:bg-slate-600/80 text-slate-200 rounded-lg text-xs"
+                        className="flex-1 bg-slate-700/80 hover:bg-slate-600/80 text-slate-200 text-xs"
                       >
                         {uploading ? "Uploading..." : "Upload"}
                       </Button>
@@ -466,7 +483,7 @@ export default function VSCOClone() {
                           setSelectedFiles([]);
                           setIsUploadExpanded(false);
                         }}
-                        className="text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 rounded-lg"
+                        className="text-slate-500 hover:text-slate-300 hover:bg-slate-700/50"
                       >
                         <X className="w-3 h-3" />
                       </Button>
@@ -511,7 +528,7 @@ export default function VSCOClone() {
           </div>
         ) : (
           <div className="text-center py-20 sm:py-32">
-            <div className="w-24 h-24 sm:w-32 sm:h-32 bg-slate-800/50 border border-slate-600/30 rounded-2xl flex items-center justify-center mx-auto mb-8">
+            <div className="w-24 h-24 sm:w-32 sm:h-32 bg-slate-800/50 border border-slate-600/30 flex items-center justify-center mx-auto mb-8">
               <Aperture className="w-12 h-12 sm:w-16 sm:h-16 text-slate-400" />
             </div>
             <h3 className="text-2xl sm:text-3xl font-bold text-slate-200 mb-4">

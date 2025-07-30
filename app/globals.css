@@ -255,4 +255,39 @@
     outline: 2px solid rgb(245 158 11);
     outline-offset: 2px;
   }
+
+  /* NUCLEAR OPTION: REMOVE ALL ROUNDED CORNERS EVERYWHERE */
+  * {
+    border-radius: 0 !important;
+  }
+  
+  /* Force sharp corners on all images - NO ROUNDED CORNERS */
+  img {
+    border-radius: 0 !important;
+  }
+  
+  /* Force sharp corners on image containers */
+  .photo-container {
+    border-radius: 0 !important;
+  }
+  
+  /* Force sharp corners on all buttons */
+  button {
+    border-radius: 0 !important;
+  }
+  
+  /* Force sharp corners on all divs */
+  div {
+    border-radius: 0 !important;
+  }
+  
+  /* Force sharp corners on all inputs */
+  input {
+    border-radius: 0 !important;
+  }
+  
+  /* Add utility class for sharp corners */
+  .rounded-none-force {
+    border-radius: 0 !important;
+  }
 }
