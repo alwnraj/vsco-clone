@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
+import { Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+
 export const metadata: Metadata = {
-  title: "VSCO Clone",
-  description: "Photo sharing app with Cloudinary integration",
+  title: "Lumina - Visual Stories",
+  description: "Curated photo gallery with artistic flair",
   generator: "Next.js",
 };
 
@@ -16,8 +20,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body>
+    <html lang="en" className={inter.variable}>
+      <body className={inter.className}>
         {children}
         <Toaster />
       </body>

@@ -1,20 +1,10 @@
 "use client";
 
-import type React from "react";
-
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Upload,
-  X,
-  Camera,
-  Grid3X3,
-  Heart,
-  MessageCircle,
-  Share,
-} from "lucide-react";
+import { X, Camera, Plus, Aperture } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { BackendStatus } from "@/components/backend-status";
@@ -36,25 +26,176 @@ interface Photo {
   blob_id?: string;
 }
 
+// Optimized helper function to get image dimensions with caching
+const getImageDimensions = (
+  file: File
+): Promise<{ width: number; height: number }> => {
+  return new Promise((resolve) => {
+    const img = document.createElement("img");
+    const url = URL.createObjectURL(file);
+
+    const cleanup = () => {
+      URL.revokeObjectURL(url);
+    };
+
+    img.onload = () => {
+      resolve({
+        width: img.naturalWidth || 400,
+        height: img.naturalHeight || 400,
+      });
+      cleanup();
+    };
+
+    img.onerror = () => {
+      // Fallback dimensions if image can't be loaded
+      resolve({ width: 400, height: 400 });
+      cleanup();
+    };
+
+    img.src = url;
+  });
+};
+
+// Memoized photo card component for better performance
+const PhotoCard = React.memo(
+  ({
+    photo,
+    onDelete,
+    index,
+    isMobile,
+  }: {
+    photo: Photo;
+    onDelete: (id: string) => void;
+    index: number;
+    isMobile: boolean;
+  }) => {
+    if (isMobile) {
+      return (
+        <div className="relative bg-slate-800/50 border border-slate-600/30 rounded-2xl overflow-hidden">
+          <div className="relative w-full aspect-square">
+            <Image
+              src={photo.grid_url || photo.url}
+              alt={photo.original_name}
+              fill
+              className="object-cover"
+              sizes="100vw"
+              priority={index < 2}
+            />
+          </div>
+          <div className="relative p-4">
+            <div className="flex justify-end">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full bg-slate-800/50 text-slate-400 border border-slate-600/30"
+                onClick={() => onDelete(photo.id)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative break-inside-avoid bg-slate-800/50 border border-slate-600/30 rounded-2xl overflow-hidden mb-4 lg:mb-6">
+        <Image
+          src={photo.grid_url || photo.url}
+          alt={photo.original_name}
+          width={photo.width || 400}
+          height={photo.height || 400}
+          className="w-full h-auto object-cover"
+          sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
+          priority={index < 6}
+        />
+        <div className="absolute top-2 right-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-full bg-slate-900/70 text-slate-300 border border-slate-600/50"
+            onClick={() => onDelete(photo.id)}
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+);
+
+PhotoCard.displayName = "PhotoCard";
+
 export default function VSCOClone() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [isUploadExpanded, setIsUploadExpanded] = useState(false);
   const { toast } = useToast();
+
+  // Memoized mock photos to prevent unnecessary re-renders
+  const mockPhotos = useMemo(
+    () => [
+      {
+        id: "1",
+        filename: "sample1.jpg",
+        original_name: "Golden hour serenity.jpg",
+        url: "/placeholder.svg?height=600&width=400",
+        grid_url: "/placeholder.svg?height=600&width=400",
+        thumbnail_url: "/placeholder.svg?height=300&width=200",
+        uploaded_at: "2024-01-15T10:30:00.000Z",
+        size: 1024000,
+        width: 400,
+        height: 600,
+      },
+      {
+        id: "2",
+        filename: "sample2.jpg",
+        original_name: "Urban symphony.jpg",
+        url: "/placeholder.svg?height=300&width=500",
+        grid_url: "/placeholder.svg?height=300&width=500",
+        thumbnail_url: "/placeholder.svg?height=150&width=250",
+        uploaded_at: "2024-01-14T15:45:00.000Z",
+        size: 2048000,
+        width: 500,
+        height: 300,
+      },
+      {
+        id: "3",
+        filename: "sample3.jpg",
+        original_name: "Whispered dreams.jpg",
+        url: "/placeholder.svg?height=500&width=400",
+        grid_url: "/placeholder.svg?height=500&width=400",
+        thumbnail_url: "/placeholder.svg?height=250&width=200",
+        uploaded_at: "2024-01-13T08:20:00.000Z",
+        size: 1536000,
+        width: 400,
+        height: 500,
+      },
+    ],
+    []
+  );
 
   // Prevent hydration issues
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Fetch photos from API with fallback
+  // Optimized fetch photos function with better error handling
   const fetchPhotos = useCallback(async () => {
     if (!mounted) return;
 
     try {
-      // Try to fetch from the API endpoint
-      const response = await fetch("/api/photos-blob");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      const response = await fetch("/api/photos-blob", {
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const data = await response.json();
         setPhotos(data.photos || []);
@@ -63,293 +204,331 @@ export default function VSCOClone() {
       }
     } catch (error) {
       console.log("Backend not available, using mock data");
-      // Fallback to mock data when backend isn't running
-      const mockPhotos: Photo[] = [
-        {
-          id: "1",
-          filename: "sample1.jpg",
-          original_name: "Beautiful sunset.jpg",
-          url: "/placeholder.svg?height=400&width=400",
-          grid_url: "/placeholder.svg?height=400&width=400",
-          thumbnail_url: "/placeholder.svg?height=300&width=300",
-          uploaded_at: "2024-01-15T10:30:00.000Z",
-          size: 1024000,
-        },
-        {
-          id: "2",
-          filename: "sample2.jpg",
-          original_name: "City lights.jpg",
-          url: "/placeholder.svg?height=400&width=400",
-          grid_url: "/placeholder.svg?height=400&width=400",
-          thumbnail_url: "/placeholder.svg?height=300&width=300",
-          uploaded_at: "2024-01-14T15:45:00.000Z",
-          size: 2048000,
-        },
-        {
-          id: "3",
-          filename: "sample3.jpg",
-          original_name: "Ocean waves.jpg",
-          url: "/placeholder.svg?height=400&width=400",
-          grid_url: "/placeholder.svg?height=400&width=400",
-          thumbnail_url: "/placeholder.svg?height=300&width=300",
-          uploaded_at: "2024-01-13T08:20:00.000Z",
-          size: 1536000,
-        },
-      ];
       setPhotos(mockPhotos);
     }
-  }, [mounted]);
+  }, [mounted, mockPhotos]);
 
   useEffect(() => {
     fetchPhotos();
   }, [fetchPhotos]);
 
-  // Handle file selection
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-    }
-  };
+  // Handle file selection with validation
+  const handleFileSelect = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files || []);
 
-  // Upload photo with fallback
-  const uploadPhoto = async () => {
-    if (!selectedFile) return;
+      // Validate file types and sizes
+      const validFiles = files.filter((file) => {
+        const isValidType = file.type.startsWith("image/");
+        const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB limit
+
+        if (!isValidType) {
+          toast({
+            title: "Invalid file type",
+            description: `${file.name} is not a valid image file.`,
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        if (!isValidSize) {
+          toast({
+            title: "File too large",
+            description: `${file.name} exceeds the 10MB limit.`,
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        return true;
+      });
+
+      if (validFiles.length > 0) {
+        setSelectedFiles(validFiles);
+        setIsUploadExpanded(true);
+      }
+    },
+    [toast]
+  );
+
+  // Optimized upload photos function with better error handling
+  const uploadPhotos = useCallback(async () => {
+    if (selectedFiles.length === 0) return;
 
     setUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
+      const uploadPromises = selectedFiles.map(async (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
 
-      const response = await fetch("/api/upload-blob", {
-        method: "POST",
-        body: formData,
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+        const response = await fetch("/api/upload-blob", {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          return await response.json();
+        } else {
+          throw new Error("Upload failed");
+        }
       });
 
-      if (response.ok) {
-        const newPhoto = await response.json();
-        setPhotos((prev) => [newPhoto, ...prev]);
-        setSelectedFile(null);
-        toast({
-          title: "Photo uploaded successfully!",
-          description: "Your photo has been uploaded to Vercel Blob storage.",
-        });
-      } else {
-        throw new Error("Upload failed");
-      }
-    } catch (error) {
-      // Fallback: create a mock photo entry when backend isn't available
-      console.log("Backend not available, creating mock upload");
-      const mockPhoto: Photo = {
-        id: Date.now().toString(),
-        filename: selectedFile.name,
-        original_name: selectedFile.name,
-        url: URL.createObjectURL(selectedFile),
-        grid_url: URL.createObjectURL(selectedFile),
-        thumbnail_url: URL.createObjectURL(selectedFile),
-        uploaded_at: new Date().toISOString(),
-        size: selectedFile.size,
-      };
-
-      setPhotos((prev) => [mockPhoto, ...prev]);
-      setSelectedFile(null);
+      const newPhotos = await Promise.all(uploadPromises);
+      setPhotos((prev) => [...newPhotos, ...prev]);
+      setSelectedFiles([]);
+      setIsUploadExpanded(false);
       toast({
-        title: "Photo uploaded (demo mode)!",
-        description:
-          "Your photo has been added to your collection. Start the backend for full functionality.",
+        title: "✨ Photos uploaded",
+        description: `${selectedFiles.length} photos added to your gallery.`,
+      });
+    } catch (error) {
+      // Fallback: create mock photo entries when backend isn't available
+      console.log("Backend not available, creating mock uploads");
+
+      const mockPhotos: Photo[] = await Promise.all(
+        selectedFiles.map(async (file, index) => {
+          // Get image dimensions
+          const dimensions = await getImageDimensions(file);
+
+          return {
+            id: (Date.now() + index).toString(),
+            filename: file.name,
+            original_name: file.name,
+            url: URL.createObjectURL(file),
+            grid_url: URL.createObjectURL(file),
+            thumbnail_url: URL.createObjectURL(file),
+            uploaded_at: new Date().toISOString(),
+            size: file.size,
+            width: dimensions.width,
+            height: dimensions.height,
+          };
+        })
+      );
+
+      setPhotos((prev) => [...mockPhotos, ...prev]);
+      setSelectedFiles([]);
+      setIsUploadExpanded(false);
+      toast({
+        title: "✨ Photos uploaded",
+        description: `${selectedFiles.length} photos added to your gallery.`,
       });
     } finally {
       setUploading(false);
     }
-  };
+  }, [selectedFiles, toast]);
 
-  // Delete photo with fallback
-  const deletePhoto = async (photoId: string) => {
-    try {
-      // Find the photo to get the blob_id
-      const photo = photos.find((p) => p.id === photoId);
-      const blobId = photo?.blob_id || photo?.filename || photoId;
+  // Optimized delete photo function
+  const deletePhoto = useCallback(
+    async (photoId: string) => {
+      try {
+        const photo = photos.find((p) => p.id === photoId);
+        const blobId = photo?.blob_id || photo?.filename || photoId;
 
-      const response = await fetch(
-        `/api/delete-blob?photoId=${encodeURIComponent(blobId)}`,
-        {
-          method: "DELETE",
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const response = await fetch(
+          `/api/delete-blob?photoId=${encodeURIComponent(blobId)}`,
+          {
+            method: "DELETE",
+            signal: controller.signal,
+          }
+        );
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
+          toast({
+            title: "Photo deleted",
+            description: "Your photo has been removed from the gallery.",
+          });
+        } else {
+          throw new Error("Delete failed");
         }
-      );
-
-      if (response.ok) {
+      } catch (error) {
+        // Fallback: remove from local state when backend isn't available
+        console.log("Backend not available, removing from local state");
         setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
         toast({
           title: "Photo deleted",
-          description: "Your photo has been removed from Cloudinary.",
+          description: "Your photo has been removed locally.",
         });
-      } else {
-        throw new Error("Delete failed");
       }
-    } catch (error) {
-      // Fallback: remove from local state when backend isn't available
-      console.log("Backend not available, removing from local state");
-      setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
-      toast({
-        title: "Photo deleted (demo mode)",
-        description: "Your photo has been removed locally.",
-      });
-    }
-  };
+    },
+    [photos, toast]
+  );
+
+  // Calculate total file size for display
+  const totalFileSize = useMemo(() => {
+    return selectedFiles.reduce((total, file) => total + file.size, 0);
+  }, [selectedFiles]);
 
   // Don't render until mounted to prevent hydration issues
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <Camera className="w-12 h-12 mx-auto mb-4 text-gray-400 animate-pulse" />
-          <p className="text-gray-600">Loading...</p>
+          <Aperture className="w-16 h-16 mx-auto mb-6 text-slate-400" />
+          <p className="text-slate-300 text-lg">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-900">
       {/* Header */}
-      <header className="border-b border-gray-100 sticky top-0 bg-white/95 backdrop-blur-sm z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+      <header className="border-b border-slate-700/50 sticky top-0 bg-slate-900 z-20">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex items-center">
             <div className="flex items-center gap-2">
-              <Camera className="w-8 h-8" />
-              <h1 className="text-2xl font-light tracking-wide">VSCO</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon">
-                <Grid3X3 className="w-5 h-5" />
-              </Button>
-              <Button variant="ghost" size="icon">
-                <Upload className="w-5 h-5" />
-              </Button>
+              <div className="p-1.5 bg-slate-800 rounded-xl">
+                <Aperture className="w-5 h-5 text-slate-300" />
+              </div>
+              <div>
+                <h1 className="text-lg sm:text-xl font-semibold text-slate-200">
+                  Lumina
+                </h1>
+                <p className="text-xs text-slate-400 leading-none">
+                  Visual Stories
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-8 safe-area-padding">
+      <div className="relative max-w-7xl mx-auto px-4 py-6 sm:py-12 safe-area-padding">
         {/* Backend Status */}
-        <BackendStatus />
+        <div className="mb-8">
+          <BackendStatus />
+        </div>
 
-        {/* Upload Section */}
-        <Card className="p-8 mb-12 border-dashed border-2 border-gray-200 bg-gray-50/50 upload-area">
-          <div className="text-center">
-            <Camera className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-            <h2 className="text-xl font-light mb-2">Share your moment</h2>
-            <p className="text-gray-600 mb-6">
-              Upload a photo from your iPhone gallery
-            </p>
-
-            <div className="flex flex-col items-center gap-4">
-              <Input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleFileSelect}
-                className="max-w-xs mobile-touch-target"
-              />
-
-              {selectedFile && (
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-600">
-                    {selectedFile.name}
-                  </span>
-                  <Button
-                    onClick={uploadPhoto}
-                    disabled={uploading}
-                    className="bg-black hover:bg-gray-800"
-                  >
-                    {uploading ? "Uploading..." : "Upload Photo"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSelectedFile(null)}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
+        {/* Minimalist Upload Section */}
+        <div className="mb-8">
+          <div className="p-6 sm:p-8">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 bg-slate-700/80 rounded-xl flex items-center justify-center">
+                  <Camera className="w-4 h-4 text-slate-300" />
                 </div>
-              )}
-            </div>
-          </div>
-        </Card>
+                <div className="text-left">
+                  <h2 className="text-lg sm:text-xl font-medium text-slate-200">
+                    Add to gallery
+                  </h2>
+                  <p className="text-xs text-slate-400">Upload new photos</p>
+                </div>
+              </div>
 
-        {/* VSCO-Style Photos Grid */}
-        {photos.length > 0 ? (
-          <div className="grid grid-cols-3 gap-1 md:gap-2 photo-grid">
-            {photos.map((photo, index) => (
-              <div
-                key={photo.id}
-                className="group relative aspect-square overflow-hidden bg-gray-100 grid-item-hover"
-              >
-                <Image
-                  src={photo.grid_url || photo.url}
-                  alt={photo.original_name}
-                  fill
-                  className="object-cover transition-all duration-300 group-hover:scale-102"
-                  sizes="(max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
-                  priority={index < 6} // Load first 6 images with priority
-                />
-
-                {/* Hover overlay with interaction icons */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300">
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="flex items-center gap-2 text-white">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-white hover:bg-white/20 h-8 w-8"
-                      >
-                        <Heart className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-white hover:bg-white/20 h-8 w-8"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-white hover:bg-white/20 h-8 w-8"
-                      >
-                        <Share className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-white hover:bg-red-500/30 h-8 w-8"
-                        onClick={() => deletePhoto(photo.id)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
+              <div className="max-w-sm mx-auto">
+                <div className="relative">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="flex items-center justify-center gap-2 p-3 bg-slate-800/60 border border-slate-700/60 rounded-xl text-slate-400">
+                    <Plus className="w-4 h-4" />
+                    <span className="text-sm font-normal">Choose files</span>
                   </div>
                 </div>
 
-                {/* Date overlay on hover */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <p className="text-white text-xs font-light">
-                    {new Date(photo.uploaded_at).toLocaleDateString()}
-                  </p>
-                </div>
+                {selectedFiles.length > 0 && (
+                  <div className="mt-4 p-3 bg-slate-800/60 rounded-xl border border-slate-700/60">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-6 h-6 bg-slate-700/80 rounded-lg flex items-center justify-center">
+                        <Camera className="w-3 h-3 text-slate-400" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-slate-300 text-xs">
+                          {selectedFiles.length} file
+                          {selectedFiles.length > 1 ? "s" : ""} selected
+                        </p>
+                        <p className="text-slate-500 text-xs">
+                          {(totalFileSize / 1024 / 1024).toFixed(1)} MB total
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={uploadPhotos}
+                        disabled={uploading}
+                        size="sm"
+                        className="flex-1 bg-slate-700/80 hover:bg-slate-600/80 text-slate-200 rounded-lg text-xs"
+                      >
+                        {uploading ? "Uploading..." : "Upload"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedFiles([]);
+                          setIsUploadExpanded(false);
+                        }}
+                        className="text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 rounded-lg"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Photo Gallery */}
+        {photos.length > 0 ? (
+          <div className="space-y-8 sm:space-y-12">
+            {/* Mobile: Instagram-style feed */}
+            <div className="block sm:hidden space-y-8">
+              {photos.map((photo, index) => (
+                <PhotoCard
+                  key={photo.id}
+                  photo={photo}
+                  onDelete={deletePhoto}
+                  index={index}
+                  isMobile={true}
+                />
+              ))}
+            </div>
+
+            {/* Desktop: VSCO-style mosaic grid */}
+            <div className="hidden sm:block">
+              <div className="columns-2 lg:columns-3 xl:columns-4 gap-4 lg:gap-6 space-y-4 lg:space-y-6">
+                {photos.map((photo, index) => (
+                  <PhotoCard
+                    key={photo.id}
+                    photo={photo}
+                    onDelete={deletePhoto}
+                    index={index}
+                    isMobile={false}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         ) : (
-          <div className="text-center py-20">
-            <Camera className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-xl font-light text-gray-600 mb-2">
-              No photos yet
+          <div className="text-center py-20 sm:py-32">
+            <div className="w-24 h-24 sm:w-32 sm:h-32 bg-slate-800/50 border border-slate-600/30 rounded-2xl flex items-center justify-center mx-auto mb-8">
+              <Aperture className="w-12 h-12 sm:w-16 sm:h-16 text-slate-400" />
+            </div>
+            <h3 className="text-2xl sm:text-3xl font-bold text-slate-200 mb-4">
+              Your gallery awaits
             </h3>
-            <p className="text-gray-500">
-              Upload your first photo to get started
+            <p className="text-slate-400 text-lg max-w-md mx-auto">
+              Upload your first photos to get started
             </p>
           </div>
         )}
