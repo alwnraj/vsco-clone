@@ -19,7 +19,7 @@ export function BackendStatus() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-      const response = await fetch("/api/upload", {
+      const response = await fetch("/api/upload-blob", {
         method: "GET",
         signal: controller.signal,
       });

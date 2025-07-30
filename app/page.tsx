@@ -33,6 +33,7 @@ interface Photo {
   height?: number;
   format?: string;
   cloudinary_id?: string;
+  blob_id?: string;
 }
 
 export default function VSCOClone() {
@@ -53,7 +54,7 @@ export default function VSCOClone() {
 
     try {
       // Try to fetch from the API endpoint
-      const response = await fetch("/api/photos");
+      const response = await fetch("/api/photos-blob");
       if (response.ok) {
         const data = await response.json();
         setPhotos(data.photos || []);
@@ -121,7 +122,7 @@ export default function VSCOClone() {
       const formData = new FormData();
       formData.append("file", selectedFile);
 
-      const response = await fetch("/api/upload", {
+      const response = await fetch("/api/upload-blob", {
         method: "POST",
         body: formData,
       });
@@ -132,7 +133,7 @@ export default function VSCOClone() {
         setSelectedFile(null);
         toast({
           title: "Photo uploaded successfully!",
-          description: "Your photo has been uploaded to Cloudinary.",
+          description: "Your photo has been uploaded to Vercel Blob storage.",
         });
       } else {
         throw new Error("Upload failed");
@@ -166,12 +167,12 @@ export default function VSCOClone() {
   // Delete photo with fallback
   const deletePhoto = async (photoId: string) => {
     try {
-      // Find the photo to get the cloudinary_id
+      // Find the photo to get the blob_id
       const photo = photos.find((p) => p.id === photoId);
-      const cloudinaryId = photo?.cloudinary_id || photo?.filename || photoId;
+      const blobId = photo?.blob_id || photo?.filename || photoId;
 
       const response = await fetch(
-        `/api/delete?photoId=${encodeURIComponent(cloudinaryId)}`,
+        `/api/delete-blob?photoId=${encodeURIComponent(blobId)}`,
         {
           method: "DELETE",
         }
