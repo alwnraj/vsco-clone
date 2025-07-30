@@ -7,11 +7,17 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    // Enable optimization for Cloudinary
+    // Enable optimization for Vercel Blob and Cloudinary
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.public.blob.vercel-storage.com',
         port: '',
         pathname: '/**',
       },
