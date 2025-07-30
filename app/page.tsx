@@ -166,9 +166,16 @@ export default function VSCOClone() {
   // Delete photo with fallback
   const deletePhoto = async (photoId: string) => {
     try {
-      const response = await fetch(`/api/photos/${photoId}`, {
-        method: "DELETE",
-      });
+      // Find the photo to get the cloudinary_id
+      const photo = photos.find((p) => p.id === photoId);
+      const cloudinaryId = photo?.cloudinary_id || photo?.filename || photoId;
+
+      const response = await fetch(
+        `/api/delete?photoId=${encodeURIComponent(cloudinaryId)}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (response.ok) {
         setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));

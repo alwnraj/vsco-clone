@@ -31,6 +31,8 @@ export default async function handler(req, res) {
             .max_results(30) // Limit to 30 most recent photos
             .execute();
 
+        console.log('Cloudinary search result:', result);
+
         // Transform Cloudinary response to match our frontend interface
         const photos = result.resources.map(resource => ({
             id: resource.asset_id || resource.public_id,
