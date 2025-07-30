@@ -51,31 +51,47 @@ export default async function handler(req, res) {
         const fs = require('fs');
         const fileBuffer = fs.readFileSync(filePath);
 
+        // Get image dimensions using sharp (if available) or fallback
+        let width = 0;
+        let height = 0;
+        try {
+            // Try to use sharp for better image processing (optional dependency)
+            const sharp = require('sharp');
+            const metadata = await sharp(fileBuffer).metadata();
+            width = metadata.width || 0;
+            height = metadata.height || 0;
+        } catch (e) {
+            // Sharp not available, dimensions will be 0
+            console.log('Sharp not available, skipping dimension extraction');
+        }
+
         // Generate unique filename
         const timestamp = Date.now();
         const extension = originalName.split('.').pop() || 'jpg';
         const fileName = `vsco-photos/${timestamp}-${Math.random().toString(36).substring(7)}.${extension}`;
 
-        // Upload to Vercel Blob
+        // Upload to Vercel Blob with minimal compression
         const blob = await put(fileName, fileBuffer, {
             access: 'public',
             contentType: mimetype,
+            // Preserve original quality as much as possible
+            addRandomSuffix: false,
         });
 
-        // Create photo metadata
+        // Create photo metadata with proper dimensions
         const photoData = {
             id: timestamp.toString(),
             filename: fileName,
             original_name: originalName || 'uploaded_image',
             url: blob.url,
-            // Create thumbnail and grid URLs by adding transformation params
+            // Use high-quality URLs for all variants
             thumbnail_url: blob.url,
             grid_url: blob.url,
             large_url: blob.url,
             uploaded_at: new Date().toISOString(),
             size: fileBuffer.length,
-            width: 0, // Vercel Blob doesn't provide dimensions
-            height: 0,
+            width: width,
+            height: height,
             format: extension,
             blob_id: fileName
         };

@@ -32,13 +32,13 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
-    // Enable modern image formats with priority on performance
-    formats: ['image/avif', 'image/webp'],
-    // Optimized device sizes for common screens
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
-    // Optimized image sizes for better caching
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384, 512],
-    // Enable image optimization
+    // High-quality image formats with quality prioritized
+    formats: ['image/webp', 'image/avif'],
+    // Larger device sizes for better quality on high-res screens
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    // More granular image sizes for better quality scaling
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384, 512, 640, 750, 828],
+    // Cache settings
     minimumCacheTTL: 31536000, // 1 year cache
     dangerouslyAllowSVG: false,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",

@@ -71,35 +71,24 @@ const PhotoCard = React.memo(
   }) => {
     if (isMobile) {
       return (
-        <div className="relative bg-slate-800/50 border border-slate-600/30 rounded-2xl overflow-hidden">
-          <div className="relative w-full aspect-square">
-            <Image
-              src={photo.grid_url || photo.url}
-              alt={photo.original_name}
-              fill
-              className="object-cover"
-              sizes="100vw"
-              priority={index < 2}
-            />
-          </div>
-          <div className="relative p-4">
-            <div className="flex justify-end">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-full bg-slate-800/50 text-slate-400 border border-slate-600/30"
-                onClick={() => onDelete(photo.id)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
+        <div className="relative bg-slate-800/50 border border-slate-600/30 overflow-hidden">
+          <Image
+            src={photo.grid_url || photo.url}
+            alt={photo.original_name}
+            width={photo.width || 400}
+            height={photo.height || 400}
+            className="w-full h-auto object-cover"
+            sizes="100vw"
+            quality={95}
+            priority={index < 2}
+            placeholder="empty"
+          />
         </div>
       );
     }
 
     return (
-      <div className="relative break-inside-avoid bg-slate-800/50 border border-slate-600/30 rounded-2xl overflow-hidden mb-4 lg:mb-6">
+      <div className="relative break-inside-avoid bg-slate-800/50 border border-slate-600/30 overflow-hidden mb-2 lg:mb-3">
         <Image
           src={photo.grid_url || photo.url}
           alt={photo.original_name}
@@ -107,7 +96,9 @@ const PhotoCard = React.memo(
           height={photo.height || 400}
           className="w-full h-auto object-cover"
           sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
+          quality={95}
           priority={index < 6}
+          placeholder="empty"
         />
         <div className="absolute top-2 right-2">
           <Button
@@ -491,7 +482,7 @@ export default function VSCOClone() {
         {photos.length > 0 ? (
           <div className="space-y-8 sm:space-y-12">
             {/* Mobile: Instagram-style feed */}
-            <div className="block sm:hidden space-y-8">
+            <div className="block sm:hidden space-y-4">
               {photos.map((photo, index) => (
                 <PhotoCard
                   key={photo.id}
@@ -505,7 +496,7 @@ export default function VSCOClone() {
 
             {/* Desktop: VSCO-style mosaic grid */}
             <div className="hidden sm:block">
-              <div className="columns-2 lg:columns-3 xl:columns-4 gap-4 lg:gap-6 space-y-4 lg:space-y-6">
+              <div className="columns-2 lg:columns-3 xl:columns-4 gap-2 lg:gap-3 space-y-2 lg:space-y-3">
                 {photos.map((photo, index) => (
                   <PhotoCard
                     key={photo.id}
