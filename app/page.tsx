@@ -433,14 +433,13 @@ export default function VSCOClone() {
                   <Input
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     multiple
                     onChange={handleFileSelect}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                   />
                   <div className="flex items-center justify-center gap-2 p-3 bg-slate-800/60 border border-slate-700/60 rounded-xl text-slate-400">
                     <Plus className="w-4 h-4" />
-                    <span className="text-sm font-normal">Choose files</span>
+                    <span className="text-sm font-normal">Choose photos</span>
                   </div>
                 </div>
 
